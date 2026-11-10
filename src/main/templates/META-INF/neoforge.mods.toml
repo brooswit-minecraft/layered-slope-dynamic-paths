@@ -11,6 +11,13 @@ authors="brooswit"
 description='''Mob and player footfall/landing erosion of layered and layerable blocks, extracted from Dynamic Terrain, for NeoForge 1.21.1.'''
 
 [[dependencies.${mod_id}]]
+    modId="layeredslopes"
+    type="required"
+    versionRange="[${layeredslopes_version},)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="neoforge"
     type="required"
     versionRange="[${neo_version},)"

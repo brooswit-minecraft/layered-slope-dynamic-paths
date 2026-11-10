@@ -26,7 +26,7 @@ class RuntimeEvidenceError(ValueError):
     """The GameTest log cannot prove a complete, non-trivial run."""
 
 
-EXPECTED_REQUIRED_TEST_COUNT = 9  # the 9 DynamicPathsGameTests cases (MINECRAFT-512)
+EXPECTED_REQUIRED_TEST_COUNT = 10  # the 10 DynamicPathsGameTests cases (MINECRAFT-512)
 
 
 def verify_runtime_log(log_text):

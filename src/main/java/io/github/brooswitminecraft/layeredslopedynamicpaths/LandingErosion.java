@@ -1,8 +1,5 @@
 package io.github.brooswitminecraft.layeredslopedynamicpaths;
 
-import java.util.Map;
-import java.util.WeakHashMap;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,17 +9,15 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
  * Landing entities as an erosion source, distinct from walking. Captures the PRE-contact impact
- * velocity rather than the post-landing (already zeroed) velocity: {@link #onPreTick} records
- * each airborne entity's current downward speed before this tick's movement/collision runs, and
- * {@link #onPostTick} consumes that recorded speed the instant {@code onGround()} transitions
- * from false to true, then clears it so the same landing cannot erode twice. Entries live in
- * {@link WeakHashMap}s keyed by entity identity, so a despawned/unloaded entity's state is
- * reclaimed automatically without an explicit unbounded cleanup pass.
+ * velocity rather than the post-landing (already zeroed) velocity: {@link #onPreTick} reports
+ * each nearby entity's ground state and current downward speed before this tick's movement/
+ * collision runs, and {@link #onPostTick} reports the resulting ground state, to the shared pure
+ * {@link LandingTracker} state machine, which decides whether a fresh landing happened and
+ * returns its impact speed. See {@link LandingTracker}'s own doc for the self-review finding
+ * this two-phase design fixes (a newly observed entity's first landing was previously missed).
  */
 public final class LandingErosion {
     private static final double RADIUS = 24.0;
-    private static final Map<LivingEntity, Double> LAST_FALL_SPEED = new WeakHashMap<>();
-    private static final Map<LivingEntity, Boolean> WAS_ON_GROUND = new WeakHashMap<>();
 
     private LandingErosion() {}
 
@@ -30,11 +25,8 @@ public final class LandingErosion {
         if (!DynamicPathsConfig.EROSION_ENABLED.get() || !DynamicPathsConfig.LANDING_EROSION.get()) {
             return;
         }
-        forEachNearbyEntity(event.getServer(), entity -> {
-            if (!entity.onGround()) {
-                LAST_FALL_SPEED.put(entity, -entity.getDeltaMovement().y);
-            }
-        });
+        forEachNearbyEntity(event.getServer(), entity ->
+                LandingTracker.observePre(entity, entity.onGround(), -entity.getDeltaMovement().y));
     }
 
     public static void onPostTick(ServerTickEvent.Post event) {
@@ -43,24 +35,19 @@ public final class LandingErosion {
         }
         long tick = event.getServer().getTickCount();
         forEachNearbyEntity(event.getServer(), entity -> {
-            boolean onGround = entity.onGround();
-            boolean wasOnGround = WAS_ON_GROUND.getOrDefault(entity, true);
-            if (onGround && !wasOnGround && !entity.isSpectator()) {
-                double impactSpeed = LAST_FALL_SPEED.getOrDefault(entity, 0.0);
-                double massKg = FootfallMath.massKg(entity.getBbWidth(), entity.getBbHeight());
-                double chance = LandingMath.chance(massKg, impactSpeed);
-                // Cross-source dedup (MINECRAFT-512 self-review): landing is registered to run
-                // before walking in the same Post tick (see LayeredSlopeDynamicPathsMod), so a
-                // real landing impact always wins a same-tick conflict and claims the entity
-                // first, leaving nothing for a merely-coincidental walking-cadence sample to claim.
-                if (chance > 0 && FootfallDedup.claim(entity, tick)) {
-                    BlockPos under = entity.getOnPos();
-                    LayerErosion.erode(entity.level(), under, chance, entity.level().getRandom(), true);
-                }
+            Double impactSpeed = LandingTracker.observePostAndConsumeImpact(entity, entity.onGround());
+            if (impactSpeed == null || entity.isSpectator()) {
+                return;
             }
-            WAS_ON_GROUND.put(entity, onGround);
-            if (onGround) {
-                LAST_FALL_SPEED.remove(entity);
+            double massKg = FootfallMath.massKg(entity.getBbWidth(), entity.getBbHeight());
+            double chance = LandingMath.chance(massKg, impactSpeed);
+            // Cross-source dedup (MINECRAFT-512 self-review): landing is registered to run
+            // before walking in the same Post tick (see LayeredSlopeDynamicPathsMod), so a
+            // real landing impact always wins a same-tick conflict and claims the entity
+            // first, leaving nothing for a merely-coincidental walking-cadence sample to claim.
+            if (chance > 0 && FootfallDedup.claim(entity, tick)) {
+                BlockPos under = entity.getOnPos();
+                LayerErosion.erode(entity.level(), under, chance, entity.level().getRandom(), true);
             }
         });
     }

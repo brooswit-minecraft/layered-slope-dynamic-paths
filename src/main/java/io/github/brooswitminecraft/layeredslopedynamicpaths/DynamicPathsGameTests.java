@@ -194,4 +194,39 @@ public final class DynamicPathsGameTests {
                         + (startLayers - after.getValue(LayeredBlock.LAYERS)) + " removed");
         helper.succeed();
     }
+
+    /**
+     * Regression for the self-review finding (PR #1 comment 52912): a never-before-seen entity
+     * (e.g. one that just entered a player's scan radius mid-fall) must not have its very first
+     * landing silently missed merely because it was the first tick it was ever observed. Drives
+     * {@link LandingTracker} (the real decision machinery {@link LandingErosion} delegates to)
+     * against a real spawned entity, exactly as {@code onPreTick}/{@code onPostTick} would for an
+     * entity that is airborne the instant it is first observed and touches down this same tick,
+     * then erodes through the real {@link LayerErosion} API and asserts exactly one layer removed.
+     */
+    @GameTest(template = "flat_platform")
+    public static void aNewlyObservedAirborneEntityLandingErodesOnce(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        int startLayers = 5;
+        helper.setBlock(pos, LayeredSlopesMod.LAYERED_STONE.get().defaultBlockState()
+                .setValue(LayeredBlock.LAYERS, startLayers).setValue(LayeredBlock.ANCHOR, Anchor.FLOOR));
+        BlockPos absolute = helper.absolutePos(pos);
+        Pig entity = helper.spawn(EntityType.PIG, pos);
+
+        // First-ever observation of this entity, already airborne (as LandingErosion.onPreTick
+        // would report), then movement resolves to grounded within that same tick (onPostTick).
+        LandingTracker.observePre(entity, false, 8.0);
+        Double impactSpeed = LandingTracker.observePostAndConsumeImpact(entity, true);
+        helper.assertTrue(impactSpeed != null, "a newly observed airborne entity's first landing must be detected");
+
+        double chance = LandingMath.chance(1.0, impactSpeed, 1.0, 1.0, 1.0, 0.0, 1.0);
+        LayerErosion.Result result = LayerErosion.erode(helper.getLevel(), absolute, chance, random(helper), true);
+
+        helper.assertTrue(result == LayerErosion.Result.REMOVED, "expected REMOVED, got " + result);
+        BlockState after = helper.getLevel().getBlockState(absolute);
+        helper.assertTrue(after.getValue(LayeredBlock.LAYERS) == startLayers - 1,
+                "expected exactly one layer removed for the first-observed landing, got "
+                        + (startLayers - after.getValue(LayeredBlock.LAYERS)) + " removed");
+        helper.succeed();
+    }
 }

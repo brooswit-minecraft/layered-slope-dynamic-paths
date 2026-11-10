@@ -77,7 +77,33 @@ neoForge {
     }
 }
 
+// layered-slopes provides the LayeredBlock/LayeredSlopesMod classes this mod reads and decrements
+// (the registered layered-block family). Required, not optional: this mod cannot erode anything
+// without the real registered layered blocks, so this goes on compileOnly AND runtimeOnly, and is
+// declared "required" in neoforge.mods.toml.
+def layeredSlopesJar = layout.buildDirectory.file("layeredslopes/layeredslopes-${project.layeredslopes_version}.jar")
+def layeredSlopesVersion = project.layeredslopes_version
+def layeredSlopesSha512 = project.layeredslopes_sha512
+tasks.register("downloadLayeredSlopes") {
+    outputs.file(layeredSlopesJar)
+    doLast {
+        def target = layeredSlopesJar.get().asFile
+        target.parentFile.mkdirs()
+        def url = "https://github.com/brooswit-minecraft/layered-slopes/releases/download/v${layeredSlopesVersion}/layeredslopes-${layeredSlopesVersion}.jar"
+        new URL(url).withInputStream { input -> target.withOutputStream { it << input } }
+        def digest = java.security.MessageDigest.getInstance("SHA-512")
+        def actual = digest.digest(target.bytes).encodeHex().toString()
+        if (actual != layeredSlopesSha512) {
+            target.delete()
+            throw new GradleException("layered-slopes ${layeredSlopesVersion} sha512 mismatch: ${actual}")
+        }
+    }
+}
+
 dependencies {
+    compileOnly files(layeredSlopesJar).builtBy(tasks.named("downloadLayeredSlopes"))
+    runtimeOnly files(layeredSlopesJar).builtBy(tasks.named("downloadLayeredSlopes"))
+
     testImplementation platform("org.junit:junit-bom:5.11.4")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
@@ -100,6 +126,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_name               : mod_name,
             mod_license            : mod_license,
             mod_version            : modVersion,
+            layeredslopes_version  : layeredSlopesVersion,
     ]
     inputs.properties replaceProperties
     expand replaceProperties

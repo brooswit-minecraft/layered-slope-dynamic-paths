@@ -18,6 +18,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  */
 public final class LandingErosion {
     private static final double RADIUS = 24.0;
+    /** Minecraft runs at 20 ticks/second; getDeltaMovement() is blocks/TICK, LandingMath expects m/s (= blocks/second). */
+    static final double TICKS_PER_SECOND = 20.0;
 
     private LandingErosion() {}
 
@@ -26,7 +28,7 @@ public final class LandingErosion {
             return;
         }
         forEachNearbyEntity(event.getServer(), entity ->
-                LandingTracker.observePre(entity, entity.onGround(), -entity.getDeltaMovement().y));
+                LandingTracker.observePre(entity, entity.onGround(), -entity.getDeltaMovement().y * TICKS_PER_SECOND));
     }
 
     public static void onPostTick(ServerTickEvent.Post event) {

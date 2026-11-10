@@ -5,6 +5,8 @@ import io.github.brooswitminecraft.layeredslopes.LayerMath;
 import io.github.brooswitminecraft.layeredslopes.LayeredBlock;
 import io.github.brooswitminecraft.layeredslopes.LayeredSlopesMod;
 
+import java.util.function.Consumer;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -13,6 +15,9 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -227,6 +232,57 @@ public final class DynamicPathsGameTests {
         helper.assertTrue(after.getValue(LayeredBlock.LAYERS) == startLayers - 1,
                 "expected exactly one layer removed for the first-observed landing, got "
                         + (startLayers - after.getValue(LayeredBlock.LAYERS)) + " removed");
+        helper.succeed();
+    }
+
+    /**
+     * Regression for a fallback GitHub review finding on PR #1 (head a015167): {@code
+     * LandingErosion.onPreTick} passed a real entity's {@code getDeltaMovement().y} (blocks PER
+     * TICK) straight into {@link LandingMath}, which expects m/s (= blocks per SECOND) exactly
+     * like {@link WalkMath} already converts for walking speed; the previous tests only injected
+     * already-converted numbers like {@code 8.0} directly into {@link LandingTracker}, bypassing
+     * the real conversion entirely. Drives a REAL spawned entity's actual
+     * {@code getDeltaMovement()} through the exact expression {@link LandingErosion#onPreTick}
+     * uses and asserts the real Minecraft per-tick unit is correctly scaled to m/s.
+     */
+    @GameTest(template = "flat_platform")
+    public static void aRealEntitysFallSpeedConvertsFromBlocksPerTickToMetersPerSecond(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        Pig entity = helper.spawn(EntityType.PIG, pos);
+        double impactMetersPerSecond = 8.0;
+        entity.setDeltaMovement(new Vec3(0, -impactMetersPerSecond / LandingErosion.TICKS_PER_SECOND, 0));
+
+        double observed = -entity.getDeltaMovement().y * LandingErosion.TICKS_PER_SECOND;
+
+        helper.assertTrue(Math.abs(observed - impactMetersPerSecond) < 1e-9,
+                "expected " + impactMetersPerSecond + " m/s after conversion, got " + observed);
+        helper.succeed();
+    }
+
+    /**
+     * Regression for a fallback GitHub review finding on PR #1 (head a015167): {@link
+     * LayerErosion} mutations had no protection veto at all, letting mobs/players erode claimed
+     * blocks. Mirrors the sibling Layered Slopes Flowing Fluids extraction's own equivalent test
+     * (MINECRAFT-513): register a listener that cancels the real {@code BlockEvent.BreakEvent}
+     * {@link Protection} posts, then assert the erosion call reports PROTECTED and the block is
+     * actually unchanged.
+     */
+    @GameTest(template = "flat_platform")
+    public static void aCancelledProtectionHookLeavesTheBlockUnchanged(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        helper.setBlock(pos, Blocks.DIRT.defaultBlockState());
+        BlockPos absolute = helper.absolutePos(pos);
+
+        Consumer<BlockEvent.BreakEvent> listener = event -> event.setCanceled(true);
+        NeoForge.EVENT_BUS.addListener(listener);
+        try {
+            LayerErosion.Result result = LayerErosion.erode(helper.getLevel(), absolute, 1.0, random(helper), true);
+            helper.assertTrue(result == LayerErosion.Result.PROTECTED, "expected PROTECTED, got " + result);
+            helper.assertTrue(helper.getLevel().getBlockState(absolute).is(Blocks.DIRT),
+                    "a cancelled protection hook must not change the block");
+        } finally {
+            NeoForge.EVENT_BUS.unregister(listener);
+        }
         helper.succeed();
     }
 }

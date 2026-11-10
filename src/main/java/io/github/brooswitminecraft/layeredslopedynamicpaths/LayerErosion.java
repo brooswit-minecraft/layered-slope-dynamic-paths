@@ -32,6 +32,8 @@ public final class LayerErosion {
         SKIPPED,
         /** The probability roll failed; nothing changed. */
         RESISTED,
+        /** A claim/protection mod vetoed the change (see {@link Protection}); nothing changed. */
+        PROTECTED,
         /** A full layerable block converted into its layered variant, one layer down. */
         CONVERTED,
         /** A layered block lost one layer and still has at least one left. */
@@ -58,6 +60,9 @@ public final class LayerErosion {
         if (random.nextDouble() >= chance) {
             return Result.RESISTED;
         }
+        if (!Protection.mayErode(level, pos)) {
+            return Result.PROTECTED;
+        }
         level.setBlock(pos, converted.defaultBlockState()
                 .setValue(LayeredBlock.LAYERS, LayerMath.MAX_LAYERS - 1)
                 .setValue(LayeredBlock.ANCHOR, Anchor.FLOOR), Block.UPDATE_ALL);
@@ -68,6 +73,9 @@ public final class LayerErosion {
             double chance, RandomSource random) {
         if (random.nextDouble() >= chance) {
             return Result.RESISTED;
+        }
+        if (!Protection.mayErode(level, pos)) {
+            return Result.PROTECTED;
         }
         int layers = state.getValue(LayeredBlock.LAYERS);
         if (layers <= LayerMath.MIN_LAYERS) {

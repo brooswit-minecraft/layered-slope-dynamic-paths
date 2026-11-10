@@ -43,12 +43,24 @@ value -- retuning one model never affects the other:
 
 ## Migration from Dynamic Terrain
 
-Dynamic Terrain's own entity-movement erosion (`EntityErosion`/`EntityMath`) stays in place for
-now; this mod does not remove or replace it. An upgraded world running both Dynamic Terrain and
-this mod will double-erode under entity footfall until Dynamic Terrain's own
-`EntityErosion`/`EntityMath` are removed in a follow-up Dynamic Terrain change (coordinate with
-that ticket before disabling `entityErosion` there). Installing this mod alone (no Dynamic
-Terrain) requires only Layered Slopes and behaves identically to the extracted behavior.
+Dynamic Terrain's own entity-movement erosion (`EntityErosion`/`EntityMath`, and the
+`entityErosion` config key) is removed by the paired Dynamic Terrain change
+([dynamic-terrain#45](https://github.com/brooswit-minecraft/dynamic-terrain/pull/45)): Dynamic
+Terrain itself no longer runs any footfall erosion once upgraded past that change, so installing
+this mod alongside an upgraded Dynamic Terrain does **not** double-erode -- there is nothing left
+on Dynamic Terrain's side to duplicate this mod's effect.
+
+An existing world's `entityErosion` preference has no automatic config migration (the key is
+simply removed from Dynamic Terrain, matching the MINECRAFT-500 Smooth Slopes split's own
+precedent): if `entityErosion` was explicitly set to `false`, carry that preference forward by
+setting this mod's own `walkErosion` and `landingErosion` to `false` (or leave `erosionEnabled`
+at its default `false`, which already disables both). If `entityErosion` was left at its default
+`true`, this mod's own defaults (`erosionEnabled`/`walkErosion`/`landingErosion`) already match
+Dynamic Terrain's prior terrain-altering-system convention of defaulting off until explicitly
+opted in server-side.
+
+Installing this mod alone (no Dynamic Terrain at all) requires only Layered Slopes and behaves
+identically to the extracted behavior, upgraded or not.
 
 ## Building
 

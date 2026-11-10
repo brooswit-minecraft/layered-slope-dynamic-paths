@@ -30,6 +30,7 @@ public final class WalkErosion {
             AABB area = player.getBoundingBox().inflate(RADIUS);
             seen.addAll(player.serverLevel().getEntitiesOfClass(LivingEntity.class, area));
         }
+        long tick = server.getTickCount();
         for (LivingEntity entity : seen) {
             if (!entity.onGround() || entity.isSpectator()) {
                 continue;
@@ -37,7 +38,9 @@ public final class WalkErosion {
             double speed = Math.hypot(entity.getX() - entity.xo, entity.getZ() - entity.zo) * 20.0;
             double massKg = FootfallMath.massKg(entity.getBbWidth(), entity.getBbHeight());
             double chance = WalkMath.chance(massKg, speed);
-            if (chance > 0) {
+            // Cross-source dedup (MINECRAFT-512 self-review): skip if a landing already claimed
+            // this entity's contact for this same tick, so one footfall cannot erode twice.
+            if (chance > 0 && FootfallDedup.claim(entity, tick)) {
                 BlockPos under = entity.getOnPos();
                 LayerErosion.erode(entity.level(), under, chance, entity.level().getRandom(), true);
             }

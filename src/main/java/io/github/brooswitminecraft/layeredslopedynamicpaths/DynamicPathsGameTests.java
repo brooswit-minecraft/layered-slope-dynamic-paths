@@ -9,6 +9,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -155,6 +157,41 @@ public final class DynamicPathsGameTests {
 
         helper.assertTrue(result == LayerErosion.Result.SKIPPED, "expected SKIPPED, got " + result);
         helper.assertTrue(helper.getLevel().getBlockState(absolute).is(Blocks.OAK_PLANKS), "an unrelated block must never change");
+        helper.succeed();
+    }
+
+    /**
+     * Regression for the self-review finding (PR #1 comment 52901): a landing that happens to
+     * fall on the same tick a walking-cadence sample would also erode must still erode at most
+     * once. Exercises {@link FootfallDedup} against a real spawned entity, then replays the exact
+     * {@code chance > 0 && FootfallDedup.claim(entity, tick)} guard both {@link WalkErosion} and
+     * {@link LandingErosion} use, in registration order (landing first): the second source's
+     * claim must fail and its erosion call must never happen, leaving only one layer removed.
+     */
+    @GameTest(template = "flat_platform")
+    public static void walkingAndLandingOnTheSameTickErodeAtMostOnce(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        int startLayers = 5;
+        helper.setBlock(pos, LayeredSlopesMod.LAYERED_STONE.get().defaultBlockState()
+                .setValue(LayeredBlock.LAYERS, startLayers).setValue(LayeredBlock.ANCHOR, Anchor.FLOOR));
+        BlockPos absolute = helper.absolutePos(pos);
+        Pig entity = helper.spawn(EntityType.PIG, pos);
+        long tick = 123L;
+
+        // Landing's Post listener runs first: it claims the entity for this tick and erodes.
+        helper.assertTrue(FootfallDedup.claim(entity, tick), "landing must win the race and claim first");
+        LayerErosion.Result landingResult = LayerErosion.erode(helper.getLevel(), absolute, 1.0, random(helper), true);
+        helper.assertTrue(landingResult == LayerErosion.Result.REMOVED, "expected REMOVED, got " + landingResult);
+
+        // Walking's listener runs second on the SAME tick: its claim must fail, so its erosion
+        // call must never happen at all (not merely resist the probability roll).
+        helper.assertTrue(!FootfallDedup.claim(entity, tick),
+                "walking must not also claim the same entity's contact on the same tick");
+
+        BlockState after = helper.getLevel().getBlockState(absolute);
+        helper.assertTrue(after.getValue(LayeredBlock.LAYERS) == startLayers - 1,
+                "expected exactly one layer removed (not two) for one same-tick contact, got "
+                        + (startLayers - after.getValue(LayeredBlock.LAYERS)) + " removed");
         helper.succeed();
     }
 }

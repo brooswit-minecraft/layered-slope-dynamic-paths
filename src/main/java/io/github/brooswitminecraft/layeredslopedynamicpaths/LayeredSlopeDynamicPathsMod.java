@@ -23,9 +23,13 @@ public class LayeredSlopeDynamicPathsMod {
 
     public LayeredSlopeDynamicPathsMod(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.SERVER, DynamicPathsConfig.SPEC);
-        NeoForge.EVENT_BUS.addListener(WalkErosion::onServerTick);
         NeoForge.EVENT_BUS.addListener(LandingErosion::onPreTick);
+        // Landing's Post listener is registered before walking's (MINECRAFT-512 self-review,
+        // FootfallDedup): NeoForge's event bus dispatches same-event listeners in registration
+        // order, so a real landing impact always claims an entity's contact before a merely-
+        // coincidental walking-cadence sample on the same tick could.
         NeoForge.EVENT_BUS.addListener(LandingErosion::onPostTick);
+        NeoForge.EVENT_BUS.addListener(WalkErosion::onServerTick);
         LOGGER.info("Layered Slope Dynamic Paths loaded");
     }
 }

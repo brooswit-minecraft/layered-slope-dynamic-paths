@@ -12,7 +12,7 @@ no Dynamic Terrain, Dynamic Vehicles or DIV dependency).
 
 Every tick, living entities near a player are checked for two independent erosion sources:
 
-- **Walking**: an on-ground entity moving faster than `WalkMath.MIN_SPEED` (0.5 m/s) reports its
+- **Walking**: an on-ground entity moving faster than `walkMinSpeed` (0.5 m/s by default) reports its
   mass x ground speed as a bounded, monotonic chance of removing one layer from the block under
   its feet (`entity.getOnPos()`, so partial-height layered contact resolves correctly).
 - **Landing**: an entity's PRE-contact fall speed (sampled every tick before movement resolves,
@@ -33,6 +33,13 @@ considered once per tick.
 
 Config (`erosionEnabled`, `walkErosion`, `landingErosion`) defaults erosion off, matching Dynamic
 Terrain's own terrain-altering defaults, so existing worlds are unaffected until explicitly opted in.
+
+Each probability model's rate/reference/cap is a separate, independently tunable server-config
+value -- retuning one model never affects the other:
+- Walking (`WalkMath`): `walkBaseChance`, `walkReferenceMassKg`, `walkReferenceSpeed`,
+  `walkMinSpeed`, `walkMaxChance`.
+- Landing (`LandingMath`): `landingBaseChance`, `landingReferenceMassKg`,
+  `landingReferenceImpactSpeed`, `landingMinImpactSpeed`, `landingMaxChance`.
 
 ## Migration from Dynamic Terrain
 

@@ -28,7 +28,19 @@ public final class LandingErosion {
             return;
         }
         forEachNearbyEntity(event.getServer(), entity ->
-                LandingTracker.observePre(entity, entity.onGround(), -entity.getDeltaMovement().y * TICKS_PER_SECOND));
+                LandingTracker.observePre(entity, entity.onGround(), impactSpeedMetersPerSecond(entity)));
+    }
+
+    /**
+     * The actual production conversion seam: {@code entity.getDeltaMovement().y} is blocks/TICK
+     * (negative while falling); {@link LandingMath} and {@link LandingTracker} expect a
+     * non-negative downward speed in m/s (= blocks/second). This is the one place that
+     * conversion happens -- {@link #onPreTick} calls it directly, and tests must call it too
+     * (rather than recomputing the same expression) so that breaking the conversion here is
+     * actually caught, instead of a test merely re-verifying its own separate copy of the formula.
+     */
+    static double impactSpeedMetersPerSecond(LivingEntity entity) {
+        return -entity.getDeltaMovement().y * TICKS_PER_SECOND;
     }
 
     public static void onPostTick(ServerTickEvent.Post event) {

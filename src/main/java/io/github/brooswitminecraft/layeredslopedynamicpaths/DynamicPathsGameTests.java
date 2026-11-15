@@ -241,9 +241,13 @@ public final class DynamicPathsGameTests {
      * TICK) straight into {@link LandingMath}, which expects m/s (= blocks per SECOND) exactly
      * like {@link WalkMath} already converts for walking speed; the previous tests only injected
      * already-converted numbers like {@code 8.0} directly into {@link LandingTracker}, bypassing
-     * the real conversion entirely. Drives a REAL spawned entity's actual
-     * {@code getDeltaMovement()} through the exact expression {@link LandingErosion#onPreTick}
-     * uses and asserts the real Minecraft per-tick unit is correctly scaled to m/s.
+     * the real conversion entirely. Strengthened for MINECRAFT-515 (self-review): the previous
+     * version of this test recomputed its own separate copy of the {@code velocity * 20}
+     * expression instead of calling {@link LandingErosion#impactSpeedMetersPerSecond}, the actual
+     * adapter {@code onPreTick} invokes -- deleting/breaking the conversion there would not have
+     * failed this test at all. Drives a REAL spawned entity's actual {@code getDeltaMovement()}
+     * through that exact production adapter and asserts the real Minecraft per-tick unit is
+     * correctly scaled to m/s.
      */
     @GameTest(template = "flat_platform")
     public static void aRealEntitysFallSpeedConvertsFromBlocksPerTickToMetersPerSecond(GameTestHelper helper) {
@@ -252,7 +256,7 @@ public final class DynamicPathsGameTests {
         double impactMetersPerSecond = 8.0;
         entity.setDeltaMovement(new Vec3(0, -impactMetersPerSecond / LandingErosion.TICKS_PER_SECOND, 0));
 
-        double observed = -entity.getDeltaMovement().y * LandingErosion.TICKS_PER_SECOND;
+        double observed = LandingErosion.impactSpeedMetersPerSecond(entity);
 
         helper.assertTrue(Math.abs(observed - impactMetersPerSecond) < 1e-9,
                 "expected " + impactMetersPerSecond + " m/s after conversion, got " + observed);

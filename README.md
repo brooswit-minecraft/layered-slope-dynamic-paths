@@ -50,9 +50,14 @@ Terrain itself no longer runs any footfall erosion once upgraded past that chang
 this mod alongside an upgraded Dynamic Terrain does **not** double-erode -- there is nothing left
 on Dynamic Terrain's side to duplicate this mod's effect.
 
-An existing world's `entityErosion` preference has no automatic config migration (the key is
-simply removed from Dynamic Terrain, matching the MINECRAFT-500 Smooth Slopes split's own
-precedent): if `entityErosion` was explicitly set to `false`, carry that preference forward by
+An existing world's `entityErosion` preference has no automatic config migration -- the key is
+simply removed from Dynamic Terrain, with no code in this mod reading or carrying forward its
+value. (This is unlike the MINECRAFT-500 Smooth Slopes split, which *does* auto-migrate its
+`worldgenSmoothing` key from Dynamic Terrain's legacy config on first write -- see smooth-slopes'
+own README/`MigrationPolicy`/`LegacyConfigMigration`. That precedent does not apply here: a single
+boolean doesn't map onto this mod's two independently-tunable `walkErosion`/`landingErosion` keys,
+so this split is a manual, documented migration instead.) If `entityErosion` was explicitly set to
+`false`, carry that preference forward by
 setting this mod's own `walkErosion` and `landingErosion` to `false` (or leave `erosionEnabled`
 at its default `false`, which already disables both). If `entityErosion` was left at its default
 `true`, this mod's own defaults (`erosionEnabled`/`walkErosion`/`landingErosion`) already match

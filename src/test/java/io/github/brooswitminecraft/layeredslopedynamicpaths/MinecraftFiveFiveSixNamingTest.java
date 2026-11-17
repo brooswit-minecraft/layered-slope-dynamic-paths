@@ -1,6 +1,7 @@
 package io.github.brooswitminecraft.layeredslopedynamicpaths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,5 +29,12 @@ class MinecraftFiveFiveSixNamingTest {
         }
         assertEquals("layeredslopedynamicpaths", props.getProperty("mod_id"));
         assertEquals("Layered Slopes Dynamic Paths", props.getProperty("mod_name"));
+    }
+
+    @Test
+    void settingsGradleRootProjectNameIsTheNormalizedName() throws IOException {
+        String settings = Files.readString(Path.of("settings.gradle"));
+        assertTrue(settings.contains("rootProject.name = \"layered-slopes-dynamic-paths\""),
+                "settings.gradle should set rootProject.name to layered-slopes-dynamic-paths");
     }
 }

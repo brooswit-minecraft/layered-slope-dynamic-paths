@@ -1,12 +1,26 @@
-# layered-slope-dynamic-paths
+# layered-slopes-dynamic-paths
 
-Mob and player footfall/landing erosion of layered and layerable blocks, extracted from Dynamic
-Terrain, for NeoForge 1.21.1.
+Layered Slopes Dynamic Paths — mob and player footfall/landing erosion of
+layered and layerable blocks, extracted from Dynamic Terrain, for NeoForge
+1.21.1. Repository renamed from `layered-slope-dynamic-paths` for naming
+consistency with the other Layered Slopes compatibility mods (MINECRAFT-556);
+the shipped mod ID, package, registry and config namespaces are deliberately
+unchanged — see Compatibility note below.
 
-NeoForge 1.21.1, Java 21. Mod ID: `layeredslopedynamicpaths`. MIT licensed.
+NeoForge 1.21.1, Java 21. Mod ID: `layeredslopedynamicpaths` (unchanged; see
+Compatibility note). MIT licensed.
 
 Depends on [Layered Slopes](https://github.com/brooswit-minecraft/layered-slopes) (blocks only;
 no Dynamic Terrain, Dynamic Vehicles or DIV dependency).
+
+## Compatibility note
+
+This repository and its GitHub display name changed; the shipped mod ID
+(`layeredslopedynamicpaths`), Java package, config keys, registry/resource/
+data namespaces, migration checks and networking IDs did not. Existing
+worlds and modpacks keep recognizing this mod exactly as before — do not
+install this alongside any build still published under the old repository
+as a separate mod; they are the same mod.
 
 ## What it does
 
